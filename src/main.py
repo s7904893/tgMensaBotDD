@@ -428,8 +428,10 @@ def inlineR(update, context):
 
 
 def text_gen(update, context):
+    if len(context.args) == 0:
+        context.bot.send_message(chat_id=update.message.chat_id, text="No arguments specified.")
+        return
     start_text = " ".join(context.args)
-    print(start_text)
     response = requests.post("https://api.deepai.org/api/text-generator",
                              data={
                                  'text': start_text,
@@ -437,9 +439,12 @@ def text_gen(update, context):
                              headers={'api-key': DEEPAI_API_TOKEN}
                              )
     json_response = response.json()
-    print(json_response)
-    result = "<b>"+start_text+"</b>"+json_response['output'].split(start_text)[1]
-    context.bot.send_message(chat_id=update.message.chat_id, text=result,  parse_mode=tg.ParseMode.HTML)
+    if 'output' in json_response:
+        result = "<b>"+start_text+"</b>"+json_response['output'].split(start_text)[1]
+        context.bot.send_message(chat_id=update.message.chat_id, text=result,  parse_mode=tg.ParseMode.HTML)
+    else:
+        context.bot.send_message(chat_id=update.message.chat_id,
+                                 text="Something went wrong internally. I am deeply sorry.")
 
 
 def main():
