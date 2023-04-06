@@ -53,6 +53,14 @@ try:
 except Exception as e:
     logging.exception(e)
     haes = ["amogus"]
+    
+try:
+    weather_file = open("weather.json", "r")
+    weather = json.load(weather_file)
+    weather_file.close()
+except Exception as e:
+    logging.exception(e)
+    weather = ["amogus"]       
 
 
 class NotifyUserException(Exception):
@@ -161,7 +169,12 @@ def andrey(update, context):
 
 def steffuu(update, context):
     context.bot.send_message(chat_id=update.message.chat_id, text=random.choice(haes))
+    
+    
+def wetter(update, context):
+    context.bot.send_message(chat_id=update.message.chat_id, text=random.choice(weather))
 
+    
 def thomas(update, context):
         sticker_set = context.bot.get_sticker_set("jason_funderburker")
         random_sticker = random.choice(sticker_set.stickers)
@@ -484,6 +497,9 @@ def main():
 
     steffuu_handler = CommandHandler('steffuu', steffuu)
     updater.dispatcher.add_handler(steffuu_handler)
+    
+    wetter_handler = CommandHandler('wetter', wetter)
+    updater.dispatcher.add_handler(wetter_handler)
 
     thomas_handler = CommandHandler('thomas', thomas)
     updater.dispatcher.add_handler(thomas_handler)
