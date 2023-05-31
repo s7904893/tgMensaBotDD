@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
-
+import telegram.constants
 from telegram.ext import Application, CommandHandler, InlineQueryHandler, ContextTypes
 from telegram import Update
 import telegram as tg
@@ -12,10 +12,11 @@ import logging
 from datetime import timedelta
 from deep_translator import GoogleTranslator
 import random
-import asyncpraw
 import sys
 import enum
 import inspirobot
+
+from reddit_client import Reddit
 
 REDDIT_BOT_ID = ''
 REDDIT_BOT_SECRET = ''
@@ -26,6 +27,8 @@ REDDIT_IMAGE_FILE_ENDINGS = [".png", ".jpg", ".jpeg", ".webp"]
 REDDIT_VIDEO_SITES = ["youtu.be", "youtube.com", "v.redd.it"]
 REDDIT_ANIMATION_FILE_ENDINGS = [".gif"]
 REDDIT_EXCLUDED_ANIMATION_SITES = ["imgur.com", "giphy.com"]
+
+reddit = Reddit()
 
 
 class RedditPostTypes(enum.Enum):
@@ -262,8 +265,7 @@ def get_post_type(post):
 
 async def get_subreddit_images(subreddit, offset=0, count=5):
     images = []
-    reddit = asyncpraw.Reddit(client_id=REDDIT_BOT_ID, client_secret=REDDIT_BOT_SECRET, user_agent=REDDIT_USER_AGENT)
-    sub = await reddit.subreddit(subreddit)
+    sub = await reddit.get_client().subreddit(subreddit)
     async for post in sub.hot(limit=count):
         if get_post_type(post) == RedditPostTypes.image:
             images.append(post.url)
@@ -271,9 +273,8 @@ async def get_subreddit_images(subreddit, offset=0, count=5):
 
 
 async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.DEFAULT_TYPE, offset=0, count=5):
-    reddit = asyncpraw.Reddit(client_id=REDDIT_BOT_ID, client_secret=REDDIT_BOT_SECRET, user_agent=REDDIT_USER_AGENT)
     posts_sent = False
-    content = await reddit.subreddit(subreddit)
+    content = await reddit.get_client().subreddit(subreddit)
     try:
         async for post in content.hot(limit=count):
             if not post.stickied:
@@ -284,7 +285,7 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
                         message = message[:1000]
                         message = message + "*(...)* [" + post.url + "]"
                     await context.bot.send_message(chat_id=update.message.chat_id, text=message,
-                                                   parse_mode=tg.ParseMode.MARKDOWN)
+                                                   parse_mode=telegram.constants.ParseMode.MARKDOWN)
                     posts_sent = True
                 elif post_type == RedditPostTypes.image:
                     # The telegram API apparently does not accept progressive JPEGs
@@ -339,8 +340,7 @@ async def r(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def rr(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    reddit = asyncpraw.Reddit(client_id=REDDIT_BOT_ID, client_secret=REDDIT_BOT_SECRET, user_agent=REDDIT_USER_AGENT)
-    sub = await reddit.random_subreddit(nsfw=False)
+    sub = await reddit.get_client().random_subreddit(nsfw=False)
     sub_name = sub.display_name
     await context.bot.send_message(chat_id=update.message.chat_id, text="Random subreddit: \"" + sub_name + "\"")
     await send_subreddit_posts(sub_name, update, context)
@@ -493,14 +493,8 @@ def main():
     application.add_handler(CommandHandler('song', get_song))
 
     if reddit_enable:
-        global REDDIT_BOT_ID
-        REDDIT_BOT_ID = os.environ['REDDIT_BOT_ID']
-
-        global REDDIT_BOT_SECRET
-        REDDIT_BOT_SECRET = os.environ['REDDIT_BOT_SECRET']
-
-        global REDDIT_USER_AGENT
-        REDDIT_USER_AGENT = os.environ['REDDIT_USER_AGENT']
+        global reddit
+        reddit.set_client(os.environ['REDDIT_BOT_ID'], os.environ['REDDIT_BOT_SECRET'], os.environ['REDDIT_USER_AGENT'])
 
         application.add_handler(CommandHandler('r', r))
         application.add_handler(CommandHandler('rr', rr))
