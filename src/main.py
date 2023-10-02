@@ -13,6 +13,7 @@ from datetime import timedelta
 from deep_translator import GoogleTranslator
 import random
 import asyncpraw
+import asyncprawcore
 import sys
 import enum
 import inspirobot
@@ -273,10 +274,11 @@ async def get_subreddit_images(subreddit, offset=0, count=5):
 
 async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.DEFAULT_TYPE, offset=0, count=5):
     reddit = asyncpraw.Reddit(client_id=REDDIT_BOT_ID, client_secret=REDDIT_BOT_SECRET, user_agent=REDDIT_USER_AGENT)
-    posts_sent = False
-    content = await reddit.subreddit(subreddit)
+    posts_sent = 0
+    search_limit = 50
     try:
-        async for post in content.hot(limit=count):
+        content = await reddit.subreddit(subreddit, fetch=True)
+        async for post in content.hot(limit=search_limit):
             if not post.stickied:
                 post_type = get_post_type(post)
                 if post_type == RedditPostTypes.text:
@@ -286,26 +288,38 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
                         message = message + "*(...)* [" + post.url + "]"
                     await context.bot.send_message(chat_id=update.message.chat_id, text=message,
                                                    parse_mode="Markdown")
-                    posts_sent = True
+                    posts_sent += 1
                 elif post_type == RedditPostTypes.image:
                     # The telegram API apparently does not accept progressive JPEGs
                     # If this is the case, skip this post and continue
                     try:
-                        await context.bot.send_photo(chat_id=update.message.chat_id, photo=post.url, caption=post.title)
-                        posts_sent = True
+                        await context.bot.send_photo(chat_id=update.message.chat_id, photo=post.url, caption=post.title, has_spoiler=post.over_18)
+                        posts_sent += 1
                     except tg.error.BadRequest:
                         continue
                 elif post_type == RedditPostTypes.video:
                     await context.bot.send_message(chat_id=update.message.chat_id, text=post.url)
-                    posts_sent = True
+                    posts_sent += 1
                 elif post_type == RedditPostTypes.animation:
                     for site in REDDIT_EXCLUDED_ANIMATION_SITES:
                         if site in post.url:
                             pass
-                    await context.bot.send_animation(chat_id=update.message.chat_id, animation=post.url,
-                                                     caption=post.title)
-                    posts_sent = True
+                    try:
+                        await context.bot.send_animation(chat_id=update.message.chat_id, animation=post.url,
+                                                         caption=post.title, has_spoiler=post.over_18)
+                    except Exception as e:
+                        print(e)
+                        continue
+                    posts_sent += 1
+            if posts_sent == count:
+                break
 
+    except asyncprawcore.Redirect:
+        await context.bot.send_message(chat_id=update.message.chat_id, text="This subreddit does not exist.")
+        return
+    except asyncprawcore.NotFound:
+        await context.bot.send_message(chat_id=update.message.chat_id, text="This subreddit was banned.")
+        return
     except Exception as ex:
         print(ex)
         await context.bot.send_message(chat_id=update.message.chat_id,
@@ -315,7 +329,7 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
     finally:
         await reddit.close()
 
-    if not posts_sent:
+    if posts_sent == 0:
         await context.bot.send_message(chat_id=update.message.chat_id, text="No compatible Posts were found.")
 
 
