@@ -23,7 +23,7 @@ REDDIT_BOT_SECRET = ''
 REDDIT_USER_AGENT = ''
 USER_AGENT_BROWSER = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36'
 
-REDDIT_IMAGE_FILE_ENDINGS = [".png", ".jpg", ".jpeg", ".webp"]
+REDDIT_IMAGE_FILE_ENDINGS = [".jpg", ".png", ".jpeg", ".webp"]
 REDDIT_VIDEO_SITES = ["youtu.be", "youtube.com", "v.redd.it"]
 REDDIT_ANIMATION_FILE_ENDINGS = [".gif"]
 REDDIT_EXCLUDED_ANIMATION_SITES = ["imgur.com", "giphy.com"]
@@ -243,21 +243,22 @@ async def decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def get_post_type(post):
     post_type = RedditPostTypes.undefined
-    if post.selftext != "":
+    for ending in REDDIT_IMAGE_FILE_ENDINGS:
+        if post.url.endswith(ending):
+            post_type = RedditPostTypes.image
+            break
+    for ending in REDDIT_ANIMATION_FILE_ENDINGS:
+        if post.url.endswith(ending):
+            post_type = RedditPostTypes.animation
+            break
+    for video_site in REDDIT_VIDEO_SITES:
+        if video_site in post.url:
+            post_type = RedditPostTypes.video
+            break
+
+    if post_type == RedditPostTypes.undefined and post.selftext != "":
         post_type = RedditPostTypes.text
-    else:
-        for ending in REDDIT_IMAGE_FILE_ENDINGS:
-            if post.url.endswith(ending):
-                post_type = RedditPostTypes.image
-                break
-        for ending in REDDIT_ANIMATION_FILE_ENDINGS:
-            if post.url.endswith(ending):
-                post_type = RedditPostTypes.animation
-                break
-        for video_site in REDDIT_VIDEO_SITES:
-            if video_site in post.url:
-                post_type = RedditPostTypes.video
-                break
+
     return post_type
 
 
@@ -285,7 +286,7 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
                     message = "*" + post.title + "* \n" + post.selftext
                     if len(message) > 1000:
                         message = message[:1000]
-                        message = message + "*(...)* [" + post.url + "]"
+                        message = message + "[...](" + post.url + ")"
                     await context.bot.send_message(chat_id=update.message.chat_id, text=message,
                                                    parse_mode="Markdown")
                     posts_sent += 1
