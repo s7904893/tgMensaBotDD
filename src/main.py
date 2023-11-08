@@ -359,7 +359,7 @@ async def r(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def rr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reddit = asyncpraw.Reddit(client_id=REDDIT_BOT_ID, client_secret=REDDIT_BOT_SECRET, user_agent=REDDIT_USER_AGENT)
-    nsfw = random.random() < 0.01
+    nsfw = random.random() < 0.05
     sub = await reddit.random_subreddit(nsfw=nsfw)
     sub_name = sub.display_name
     await context.bot.send_message(chat_id=update.message.chat_id, text="Random subreddit: \"" + sub_name + "\"")
