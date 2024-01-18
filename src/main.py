@@ -321,6 +321,9 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
     except asyncprawcore.NotFound:
         await context.bot.send_message(chat_id=update.message.chat_id, text="This subreddit was banned.")
         return
+    except asyncprawcore.Forbidden:
+        await context.bot.send_message(chat_id=update.message.chat_id, text="This subreddit is private.")
+        return
     except Exception as ex:
         print(ex)
         await context.bot.send_message(chat_id=update.message.chat_id,
@@ -359,7 +362,7 @@ async def r(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def rr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reddit = asyncpraw.Reddit(client_id=REDDIT_BOT_ID, client_secret=REDDIT_BOT_SECRET, user_agent=REDDIT_USER_AGENT)
-    nsfw = random.random() < 0.05
+    nsfw = random.random() < 0.1
     sub = await reddit.random_subreddit(nsfw=nsfw)
     sub_name = sub.display_name
     await context.bot.send_message(chat_id=update.message.chat_id, text="Random subreddit: \"" + sub_name + "\"")
