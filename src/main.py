@@ -283,7 +283,7 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
             if not post.stickied:
                 post_type = get_post_type(post)
                 if post_type == RedditPostTypes.text:
-                    message = "*" + post.title + "* \n" + post.selftext
+                    message = "*" + tg.helpers.escape_markdown(post.title) + "* \n" + tg.helpers.escape_markdown(post.selftext)
                     if len(message) > 1000:
                         message = message[:1000]
                         message = message + "[...](" + post.url + ")"
