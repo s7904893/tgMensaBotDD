@@ -34,7 +34,8 @@ class RedditPostTypes(enum.Enum):
     image = 2
     animation = 3
     video = 4
-    undefined = 5
+    gallery = 5
+    undefined = 6
 
 
 royal_titles = ["Lé", "Baron", "König", "Archlord", "Genius", "Ritter", "Curry", "Burger", "Mc", "Doktor", "Gentoomaster", "Chef", "Lead Developer", "Sensei"]
@@ -259,6 +260,9 @@ def get_post_type(post):
     if post_type == RedditPostTypes.undefined and post.selftext != "":
         post_type = RedditPostTypes.text
 
+    if post_type == RedditPostTypes.undefined and "/gallery/" in post.url:
+        post_type = RedditPostTypes.gallery
+
     return post_type
 
 
@@ -271,6 +275,15 @@ async def get_subreddit_images(subreddit, offset=0, count=5):
             images.append(post.url)
     reddit.close()
     return images
+
+
+def get_gallery_images(post):
+    gallery = []
+    for i in post.media_metadata.items():
+        url = i[1]['p'][0]['u']
+        url = url.split("?")[0].replace("preview", "i")
+        gallery.append(tg.InputMediaPhoto(media=url, has_spoiler=post.over_18))
+    return gallery
 
 
 async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.DEFAULT_TYPE, offset=0, count=5):
@@ -312,6 +325,11 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
                         print(e)
                         continue
                     posts_sent += 1
+                elif post_type == RedditPostTypes.gallery:
+                    gallery = get_gallery_images(post)
+                    await context.bot.send_media_group(chat_id=update.message.chat_id, media=gallery, caption=post.title)
+                    posts_sent += 1
+
             if posts_sent == count:
                 break
 
