@@ -273,7 +273,7 @@ async def get_subreddit_images(subreddit, offset=0, count=5):
     async for post in sub.hot(limit=count):
         if get_post_type(post) == RedditPostTypes.image:
             images.append(post.url)
-    reddit.close()
+    await reddit.close()
     return images
 
 
