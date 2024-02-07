@@ -293,45 +293,49 @@ async def send_subreddit_posts(subreddit, update: Update, context: ContextTypes.
     try:
         content = await reddit.subreddit(subreddit, fetch=True)
         async for post in content.hot(limit=search_limit):
-            if not post.stickied:
-                post_type = get_post_type(post)
-                if post_type == RedditPostTypes.text:
-                    message = "*" + tg.helpers.escape_markdown(post.title) + "* \n" + tg.helpers.escape_markdown(post.selftext)
-                    if len(message) > 1000:
-                        message = message[:1000]
-                        message = message + "[...](" + post.url + ")"
-                    await context.bot.send_message(chat_id=update.message.chat_id, text=message,
-                                                   parse_mode="Markdown")
-                    posts_sent += 1
-                elif post_type == RedditPostTypes.image:
-                    # The telegram API apparently does not accept progressive JPEGs
-                    # If this is the case, skip this post and continue
-                    try:
-                        await context.bot.send_photo(chat_id=update.message.chat_id, photo=post.url, caption=post.title, has_spoiler=post.over_18)
+            try:
+                if not post.stickied:
+                    post_type = get_post_type(post)
+                    if post_type == RedditPostTypes.text:
+                        message = "*" + tg.helpers.escape_markdown(post.title, version=2) + "* \n" + tg.helpers.escape_markdown(post.selftext, version=2)
+                        if len(message) > 1000:
+                            message = message[:1000]
+                            message = message + "[\\.\\.\\.](" + post.url + ")"
+                        await context.bot.send_message(chat_id=update.message.chat_id, text=message,
+                                                       parse_mode="MarkdownV2")
                         posts_sent += 1
-                    except tg.error.BadRequest:
-                        continue
-                elif post_type == RedditPostTypes.video:
-                    await context.bot.send_message(chat_id=update.message.chat_id, text=post.url)
-                    posts_sent += 1
-                elif post_type == RedditPostTypes.animation:
-                    for site in REDDIT_EXCLUDED_ANIMATION_SITES:
-                        if site in post.url:
-                            pass
-                    try:
+                    elif post_type == RedditPostTypes.image:
+                        # The telegram API apparently does not accept progressive JPEGs
+                        # If this is the case, skip this post and continue
+                        try:
+                            await context.bot.send_photo(chat_id=update.message.chat_id, photo=post.url, caption=post.title, has_spoiler=post.over_18)
+                            posts_sent += 1
+                        except tg.error.BadRequest:
+                            continue
+                    elif post_type == RedditPostTypes.video:
+                        await context.bot.send_message(chat_id=update.message.chat_id, text=post.url)
+                        posts_sent += 1
+                    elif post_type == RedditPostTypes.animation:
+                        for site in REDDIT_EXCLUDED_ANIMATION_SITES:
+                            if site in post.url:
+                                pass
+                        title = tg.helpers.escape_markdown(post.title, version=2)
                         await context.bot.send_animation(chat_id=update.message.chat_id, animation=post.url,
-                                                         caption=post.title, has_spoiler=post.over_18)
-                    except Exception as e:
-                        print(e)
-                        continue
-                    posts_sent += 1
-                elif post_type == RedditPostTypes.gallery:
-                    gallery = get_gallery_images(post)
-                    await context.bot.send_media_group(chat_id=update.message.chat_id, media=gallery, caption=post.title)
-                    posts_sent += 1
+                                                         caption=title, has_spoiler=post.over_18, parse_mode="MarkdownV2")
+                        posts_sent += 1
+                    elif post_type == RedditPostTypes.gallery:
+                        gallery = get_gallery_images(post)
+                        await context.bot.send_media_group(chat_id=update.message.chat_id, media=gallery[:10], caption=post.title)
+                        posts_sent += 1
 
-            if posts_sent == count:
-                break
+                if posts_sent == count:
+                    break
+            except Exception as ex:
+                print(ex)
+                await context.bot.send_message(chat_id=update.message.chat_id,
+                                               text="Could not get post.")
+                posts_sent += 1
+                continue
 
     except asyncprawcore.Redirect:
         await context.bot.send_message(chat_id=update.message.chat_id, text="This subreddit does not exist.")
@@ -380,7 +384,7 @@ async def r(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def rr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reddit = asyncpraw.Reddit(client_id=REDDIT_BOT_ID, client_secret=REDDIT_BOT_SECRET, user_agent=REDDIT_USER_AGENT)
-    nsfw = random.random() < 0.1
+    nsfw = random.random() < 0.01
     sub = await reddit.random_subreddit(nsfw=nsfw)
     sub_name = sub.display_name
     await context.bot.send_message(chat_id=update.message.chat_id, text="Random subreddit: \"" + sub_name + "\"")
